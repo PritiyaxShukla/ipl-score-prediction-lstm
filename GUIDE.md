@@ -16,6 +16,16 @@ how to load the model and run a prediction.
 All 5 files are required together. The model alone cannot make a correct prediction —
 it only understands encoded/scaled numbers, not raw team names or run counts.
 
+**Training summary:** Stacked LSTM, trained up to 150 epochs with early stopping
+(patience 12) — training actually stopped at **epoch 110**, with the best-validation-loss
+weights restored. Test set: MAE ≈ 1.98 runs, RMSE ≈ 2.64, R² ≈ 0.993.
+
+**What "patience" means:** `EarlyStopping` watches validation loss each epoch. If it
+doesn't improve for `patience` (12) consecutive epochs, training stops and the weights
+from the best epoch are restored (`restore_best_weights=True`). This is why training
+stopped at epoch 110 even though `epochs=150` was the max — the best epoch was around
+98, then 12 epochs with no improvement triggered the stop.
+
 ## 2. Install
 
 ```bash
