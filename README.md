@@ -24,3 +24,15 @@ trained on 20-timestep (one per over) sequences of 7 features per innings, with 
 `matches.csv` / `deliveries.csv` are not included in this repo (see `.gitignore`) — download them from the
 [Kaggle dataset](https://www.kaggle.com/datasets/patrickb1912/ipl-complete-dataset-20082020) and place them
 alongside the notebook to re-run it.
+
+## Web app
+
+A Flask UI (`app.py`, `predict.py`, `templates/`, `static/`) serves live predictions with a
+match-state dashboard, run-rate comparison, progression chart, and a light/dark theme toggle.
+
+```bash
+pip install flask tensorflow scikit-learn numpy
+python app.py
+```
+
+Then open http://127.0.0.1:5001.

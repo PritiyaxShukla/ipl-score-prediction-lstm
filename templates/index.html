@@ -1,0 +1,592 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Predict final IPL scores with an advanced Stacked LSTM neural network. Simulation of T20 match states in real time.">
+    <title>IPL Score Predictor — Deep Learning Simulator</title>
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <!-- Main Stylesheet -->
+    <link rel="stylesheet" href="/static/css/style.css">
+    <!-- Apply saved theme before paint to avoid a flash of the wrong theme -->
+    <script>
+        (function () {
+            var saved = localStorage.getItem("ipl-theme");
+            var theme = saved || (window.matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark");
+            document.documentElement.setAttribute("data-theme", theme);
+        })();
+    </script>
+</head>
+<body>
+    <div class="app-container">
+        <!-- Header -->
+        <header class="app-header">
+            <div class="header-left-side">
+                <div class="logo-area">
+                    <span class="logo-badge">LSTM</span>
+                    <div class="title-wrap">
+                        <h1 id="main-title">IPL Score Predictor</h1>
+                        <p class="subtitle">Neural Network Powered Match Simulator</p>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Tab Navigation (Vercel Style) -->
+            <nav class="app-nav" aria-label="Main Navigation">
+                <button type="button" class="nav-link active" data-tab="simulator">Simulator</button>
+                <button type="button" class="nav-link" data-tab="model-details">Model Info</button>
+                <button type="button" class="nav-link" data-tab="contributions">Team & Credits</button>
+            </nav>
+
+            <div class="status-indicator">
+                <span class="pulse-dot"></span>
+                <span class="status-text">Model Active</span>
+            </div>
+
+            <button type="button" class="theme-toggle-btn" id="theme-toggle-btn" aria-label="Toggle light/dark theme" title="Toggle theme">
+                <svg class="theme-icon icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg>
+                <svg class="theme-icon icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+            </button>
+        </header>
+
+        <!-- Tab 1: Simulator Dashboard -->
+        <div id="tab-simulator" class="tab-panel active">
+            <div class="dashboard-grid">
+                <!-- Sidebar: Match Configuration -->
+                <section class="card config-card" aria-labelledby="config-title">
+                    <div class="card-header">
+                        <svg class="header-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a10 10 0 0 0-10 10c0 5.523 4.477 10 10 10s10-4.477 10-10A10 10 0 0 0 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm1-13h-2v6h6v-2h-4V7z"/></svg>
+                        <h2 id="config-title">Match Settings</h2>
+                    </div>
+                    
+                    <!-- Quick Match Presets -->
+                    <div class="presets-section">
+                        <span class="section-label">Quick Presets</span>
+                        <div class="preset-buttons">
+                            <button type="button" class="btn-preset" id="preset-el-clasico" data-batting="Mumbai Indians" data-bowling="Chennai Super Kings" data-venue="Wankhede Stadium">
+                                MI vs CSK <span class="venue-tag">Wankhede</span>
+                            </button>
+                            <button type="button" class="btn-preset" id="preset-royal" data-batting="Royal Challengers Bengaluru" data-bowling="Kolkata Knight Riders" data-venue="M Chinnaswamy Stadium, Bengaluru">
+                                RCB vs KKR <span class="venue-tag">Chinnaswamy</span>
+                            </button>
+                            <button type="button" class="btn-preset" id="preset-derby" data-batting="Sunrisers Hyderabad" data-bowling="Rajasthan Royals" data-venue="Rajiv Gandhi International Stadium, Uppal, Hyderabad">
+                                SRH vs RR <span class="venue-tag">Hyderabad</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <form id="match-config-form" class="config-form">
+                        <div class="form-group">
+                            <label for="batting-team">Batting Team</label>
+                            <div class="select-wrapper">
+                                <select id="batting-team" name="batting_team" required>
+                                    <option value="" disabled selected>Select Batting Team</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="bowling-team">Bowling Team</label>
+                            <div class="select-wrapper">
+                                <select id="bowling-team" name="bowling_team" required>
+                                    <option value="" disabled selected>Select Bowling Team</option>
+                                </select>
+                            </div>
+                            <span class="validation-error" id="team-validation-error">Teams must be different</span>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="match-venue">Venue</label>
+                            <div class="select-wrapper">
+                                <select id="match-venue" name="venue" required>
+                                    <option value="" disabled selected>Select Stadium/Venue</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label>Prediction Mode</label>
+                            <div class="mode-select-container">
+                                <label class="mode-option">
+                                    <input type="radio" name="prediction_type" value="projected" checked>
+                                    <span class="mode-button">
+                                        <span class="mode-title">Full 20-Over Project</span>
+                                        <span class="mode-desc">LSTM projects rest of match at current pace</span>
+                                    </span>
+                                </label>
+                                <label class="mode-option">
+                                    <input type="radio" name="prediction_type" value="raw">
+                                    <span class="mode-button">
+                                        <span class="mode-title">Raw Model (Innings End)</span>
+                                        <span class="mode-desc">Predict score if innings ended right now</span>
+                                    </span>
+                                </label>
+                            </div>
+                        </div>
+                    </form>
+                </section>
+
+                <!-- Main Content Area -->
+                <div class="main-dashboard-content">
+                    <!-- Mode Segmented Switch -->
+                    <div class="segmented-control-container">
+                        <div class="segmented-control">
+                            <input type="radio" id="radio-quick" name="input_mode" value="quick" checked>
+                            <label for="radio-quick" class="segment-label">Quick Tracker</label>
+                            
+                            <input type="radio" id="radio-detailed" name="input_mode" value="detailed">
+                            <label for="radio-detailed" class="segment-label">Over-by-Over Log</label>
+                            
+                            <div class="segment-slider"></div>
+                        </div>
+                    </div>
+
+                    <!-- Input Panel: Quick Tracker -->
+                    <section class="card input-card" id="quick-input-panel">
+                        <div class="card-header">
+                            <svg class="header-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+                            <h2>Current Match State</h2>
+                        </div>
+                        
+                        <div class="quick-sliders">
+                            <!-- Overs Slider -->
+                            <div class="slider-group">
+                                <div class="slider-header">
+                                    <span class="slider-label">Overs Bowled</span>
+                                    <span class="slider-value-display" id="val-display-overs">10.0</span>
+                                </div>
+                                <input type="range" id="input-overs" min="1" max="19" step="1" value="10" class="custom-range" aria-valuemin="1" aria-valuemax="19" aria-valuenow="10">
+                                <div class="slider-ticks">
+                                    <span>1 Over</span>
+                                    <span>5</span>
+                                    <span>10</span>
+                                    <span>15</span>
+                                    <span>19 Overs</span>
+                                </div>
+                            </div>
+
+                            <div class="inputs-row">
+                                <!-- Runs Input -->
+                                <div class="numeric-input-group">
+                                    <label for="input-runs">Runs Scored</label>
+                                    <div class="number-control">
+                                        <button type="button" class="btn-step" id="btn-runs-minus" aria-label="Decrease runs">—</button>
+                                        <input type="number" id="input-runs" min="0" max="350" value="80" required>
+                                        <button type="button" class="btn-step" id="btn-runs-plus" aria-label="Increase runs">+</button>
+                                    </div>
+                                    <span class="input-helper">Run Rate: <strong id="quick-crr">8.00</strong></span>
+                                </div>
+
+                                <!-- Wickets Input -->
+                                <div class="numeric-input-group">
+                                    <label for="input-wickets">Wickets Fallen</label>
+                                    <div class="number-control">
+                                        <button type="button" class="btn-step" id="btn-wickets-minus" aria-label="Decrease wickets">—</button>
+                                        <input type="number" id="input-wickets" min="0" max="10" value="3" required>
+                                        <button type="button" class="btn-step" id="btn-wickets-plus" aria-label="Increase wickets">+</button>
+                                    </div>
+                                    <span class="input-helper">Wickets remaining: <strong id="quick-wickets-rem">7</strong></span>
+                                </div>
+                            </div>
+                        </div>
+                    </section>
+
+                    <!-- Input Panel: Detailed Tracker -->
+                    <section class="card input-card hidden" id="detailed-input-panel">
+                        <div class="card-header space-between">
+                            <div class="header-left">
+                                <svg class="header-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
+                                <h2>Over-by-Over Progression Log</h2>
+                            </div>
+                            <div class="header-actions">
+                                <button type="button" class="btn-secondary btn-sm" id="btn-clear-overs">Reset Log</button>
+                                <button type="button" class="btn-primary-glow btn-sm" id="btn-add-over-row">+ Add Over</button>
+                            </div>
+                        </div>
+
+                        <div class="detailed-table-container">
+                            <table class="progression-table" id="overs-table">
+                                <thead>
+                                    <tr>
+                                        <th>Over</th>
+                                        <th>Runs in Over</th>
+                                        <th>Cum. Runs</th>
+                                        <th>Wickets in Over</th>
+                                        <th>Cum. Wickets</th>
+                                        <th>Run Rate</th>
+                                        <th class="actions-col"></th>
+                                    </tr>
+                                </thead>
+                                <tbody id="overs-table-body">
+                                    <!-- Dynamically populated rows -->
+                                </tbody>
+                            </table>
+                            <div class="empty-state" id="table-empty-state">
+                                <svg class="empty-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg>
+                                <p>No completed overs logged. Add an over above to start detailed progression.</p>
+                                <button type="button" class="btn-secondary btn-sm" id="btn-load-mock-log">Load Demo Match Progress</button>
+                            </div>
+                        </div>
+                    </section>
+
+                    <!-- Visualization & Dashboard Outputs -->
+                    <div class="outputs-grid">
+                        <!-- Predictions Output Card -->
+                        <section class="card output-card prediction-output-card" aria-labelledby="prediction-header">
+                            <div class="card-header">
+                                <svg class="header-icon pulse-blue" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+                                <h2 id="prediction-header">Model Output</h2>
+                            </div>
+                            <div class="api-error-banner hidden" id="api-error-banner">
+                                <svg class="error-banner-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                                <span class="error-message-text" id="api-error-msg"></span>
+                            </div>
+
+                            <div class="prediction-main">
+                                <div class="score-ring-wrap">
+                                    <div class="prediction-score-box">
+                                        <span class="prediction-label">PREDICTED FINAL SCORE</span>
+                                        <h3 class="prediction-number" id="predicted-score-val">—</h3>
+                                        <span class="prediction-units">RUNS</span>
+                                    </div>
+                                </div>
+
+                                <!-- Benchmarks -->
+                                <div class="comparison-bars">
+                                    <div class="comparison-bar-group">
+                                        <div class="bar-info">
+                                            <span class="bar-label">LSTM Neural Net Prediction</span>
+                                            <span class="bar-val" id="val-bar-lstm">—</span>
+                                        </div>
+                                        <div class="bar-track">
+                                            <div class="bar-fill lstm-fill" id="fill-bar-lstm" style="width: 0%"></div>
+                                        </div>
+                                    </div>
+
+                                    <div class="comparison-bar-group">
+                                        <div class="bar-info">
+                                            <span class="bar-label">Linear Run Rate Projection</span>
+                                            <span class="bar-val" id="val-bar-linear">—</span>
+                                        </div>
+                                        <div class="bar-track">
+                                            <div class="bar-fill linear-fill" id="fill-bar-linear" style="width: 0%"></div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="match-meta-info">
+                                    <div class="meta-item">
+                                        <span class="meta-label">Current RR</span>
+                                        <span class="meta-value" id="current-rr-val">0.00</span>
+                                    </div>
+                                    <div class="meta-item">
+                                        <span class="meta-label">Matchup Bias</span>
+                                        <span class="meta-value" id="bias-val">Neutral</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </section>
+
+                        <!-- Chart Card -->
+                        <section class="card output-card chart-card" aria-labelledby="chart-header">
+                            <div class="card-header">
+                                <svg class="header-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 20V10M12 20V4M6 20v-6"/></svg>
+                                <h2 id="chart-header">Runs Progression Curve</h2>
+                            </div>
+                            <div class="chart-content">
+                                <!-- Custom SVG Chart Container -->
+                                <div class="chart-container" id="svg-chart-container">
+                                    <svg id="progression-chart" width="100%" height="100%" viewBox="0 0 500 220" preserveAspectRatio="none">
+                                        <!-- Gradients -->
+                                        <defs>
+                                            <linearGradient id="chart-glow" x1="0" y1="0" x2="0" y2="1">
+                                                <stop offset="0%" stop-color="rgba(99, 102, 241, 0.4)"/>
+                                                <stop offset="100%" stop-color="rgba(99, 102, 241, 0.0)"/>
+                                            </linearGradient>
+                                        </defs>
+                                        <!-- Grid lines will be injected here -->
+                                        <g id="chart-grid"></g>
+                                        <!-- Linear Projection Path -->
+                                        <path id="chart-linear-path" d="" fill="none" stroke="#64748b" stroke-width="2" stroke-dasharray="4 4" opacity="0.6"/>
+                                        <!-- LSTM Projection Path -->
+                                        <path id="chart-lstm-path-area" d="" fill="url(#chart-glow)"/>
+                                        <path id="chart-lstm-path" d="" fill="none" stroke="#6366f1" stroke-width="3"/>
+                                        <!-- Markers -->
+                                        <g id="chart-markers"></g>
+                                    </svg>
+                                    <!-- Tooltip helper -->
+                                    <div class="chart-tooltip" id="chart-tooltip"></div>
+                                </div>
+                                <div class="chart-legend">
+                                    <div class="legend-item"><span class="legend-dot lstm-dot"></span> LSTM Projected</div>
+                                    <div class="legend-item"><span class="legend-dot linear-dot"></span> Linear RR</div>
+                                    <div class="legend-item"><span class="legend-dot wicket-dot"></span> Wicket</div>
+                                </div>
+                            </div>
+                        </section>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tab 2: Model Architecture & Details -->
+        <div id="tab-model-details" class="tab-panel hidden">
+            <div class="info-grid">
+                <!-- Main Info Card -->
+                <section class="card info-card-full" aria-labelledby="model-overview-title">
+                    <div class="card-header">
+                        <svg class="header-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
+                        <h2 id="model-overview-title">Model Overview & Stacked LSTM Architecture</h2>
+                    </div>
+                    <div class="info-content-layout">
+                        <div class="technical-writeup">
+                            <p class="paragraph-lead">
+                                The IPL Score Predictor utilizes a deep learning **Stacked LSTM (Long Short-Term Memory)** network trained on ball-by-ball IPL match data spanning 2008 to 2024. 
+                            </p>
+                            <p>
+                                Unlike static statistical run rate models, this architecture reads the progression of completed overs as a sequence of state vectors, learning complex temporal dependencies like batting acceleration in the death overs, bowling pressure, and wicket loss patterns relative to stadium size and matchups.
+                            </p>
+                            
+                            <h3 class="sub-section-title">Sequence Inputs & Features</h3>
+                            <p>
+                                For every completed over (up to 20), the model is fed a sequence containing 7 normalized features in this exact order:
+                            </p>
+                            <ul class="styled-list">
+                                <li><strong>Cumulative Runs</strong>: Runs scored up to the current over snapshot.</li>
+                                <li><strong>Cumulative Wickets</strong>: Wickets lost up to the current over snapshot.</li>
+                                <li><strong>Current Run Rate</strong>: Runs divided by overs completed (smoothed to prevent division by zero).</li>
+                                <li><strong>Current Over</strong>: Timestep index mapping match progression (1 to 20).</li>
+                                <li><strong>Batting Team ID</strong>: Categorical integer label (fitted on team encoder).</li>
+                                <li><strong>Bowling Team ID</strong>: Categorical integer label (fitted on team encoder).</li>
+                                <li><strong>Venue ID</strong>: Categorical integer label (fitted on venue encoder).</li>
+                            </ul>
+                        </div>
+                        
+                        <div class="architecture-diagram-card">
+                            <div class="architecture-box">
+                                <h4 class="architecture-box-title">Network Architecture</h4>
+                                <div class="layer-list">
+                                    <div class="network-layer layer-input">
+                                        <span class="layer-name">Input Layer</span>
+                                        <span class="layer-details">20 Timesteps x 7 Features</span>
+                                    </div>
+                                    <div class="layer-arrow">↓</div>
+                                    <div class="network-layer layer-lstm">
+                                        <span class="layer-name">LSTM Layer 1 (128 units)</span>
+                                        <span class="layer-details">return_sequences=True</span>
+                                    </div>
+                                    <div class="layer-arrow">↓</div>
+                                    <div class="network-layer layer-dropout">
+                                        <span class="layer-name">Dropout (0.3)</span>
+                                        <span class="layer-details">30% units deactivated</span>
+                                    </div>
+                                    <div class="layer-arrow">↓</div>
+                                    <div class="network-layer layer-lstm">
+                                        <span class="layer-name">LSTM Layer 2 (64 units)</span>
+                                        <span class="layer-details">return_sequences=False</span>
+                                    </div>
+                                    <div class="layer-arrow">↓</div>
+                                    <div class="network-layer layer-dropout">
+                                        <span class="layer-name">Dropout (0.3)</span>
+                                        <span class="layer-details">30% units deactivated</span>
+                                    </div>
+                                    <div class="layer-arrow">↓</div>
+                                    <div class="network-layer layer-dense">
+                                        <span class="layer-name">Dense Layer 3 (32 units)</span>
+                                        <span class="layer-details">ReLU Activation</span>
+                                    </div>
+                                    <div class="layer-arrow">↓</div>
+                                    <div class="network-layer layer-output">
+                                        <span class="layer-name">Dense Output Layer (1 unit)</span>
+                                        <span class="layer-details">Linear Activation (Scaled Final Score)</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Metrics and Performance Details -->
+                <div class="two-column-info">
+                    <section class="card" aria-labelledby="training-stats-title">
+                        <div class="card-header">
+                            <svg class="header-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+                            <h2 id="training-stats-title">Training Configuration & Performance</h2>
+                        </div>
+                        <div class="metrics-grid">
+                            <table class="metrics-details-table">
+                                <thead>
+                                    <tr>
+                                        <th>Metric</th>
+                                        <th>Test Dataset Performance</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr>
+                                        <td><strong>Mean Absolute Error (MAE)</strong></td>
+                                        <td><span class="badge-value success-badge">1.98 runs</span></td>
+                                    </tr>
+                                    <tr>
+                                        <td><strong>Root Mean Squared Error (RMSE)</strong></td>
+                                        <td><span class="badge-value success-badge">2.64 runs</span></td>
+                                    </tr>
+                                    <tr>
+                                        <td><strong>R-squared (R²) Coefficient</strong></td>
+                                        <td><span class="badge-value glow-badge">0.993</span></td>
+                                    </tr>
+                                    <tr>
+                                        <td><strong>Max Epochs / Early Stopping</strong></td>
+                                        <td>150 epochs (Stopped at epoch 110, patience 12)</td>
+                                    </tr>
+                                    <tr>
+                                        <td><strong>Best Epoch Model Restore</strong></td>
+                                        <td>Restored weights from Epoch 98</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                            <div class="metrics-note">
+                                <p><strong>Note on High R²:</strong> The high coefficient is due to the model evaluating sequence snapshots where late-innings overs contain cumulative run details very close to the target final score. Feature scaling is normalized via a fitted MinMaxScaler and final targets are normalized with a 300.0 scale factor for training stability.</p>
+                            </div>
+                        </div>
+                    </section>
+
+                    <section class="card" aria-labelledby="charts-gallery-title">
+                        <div class="card-header">
+                            <svg class="header-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+                            <h2 id="charts-gallery-title">Training Loss & Validation Curves</h2>
+                        </div>
+                        
+                        <div class="gallery-wrapper">
+                            <div class="gallery-item-block">
+                                <span class="gallery-label">Loss History (Train vs Validation)</span>
+                                <img src="/static/images/training_vs_validation_loss.png" alt="Training vs Validation Loss Curve" class="responsive-gallery-img">
+                            </div>
+                            <div class="gallery-item-block">
+                                <span class="gallery-label">Actual vs Predicted Scores (Test Set)</span>
+                                <img src="/static/images/actual_vs_predicted.png" alt="Actual vs Predicted scatter plot" class="responsive-gallery-img">
+                            </div>
+                        </div>
+                    </section>
+                </div>
+
+                <!-- Exploratory Data Analysis Card -->
+                <section class="card info-card-full" aria-labelledby="eda-gallery-title">
+                    <div class="card-header">
+                        <svg class="header-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+                        <h2 id="eda-gallery-title">Exploratory Data Analysis Highlights</h2>
+                    </div>
+                    <div class="eda-gallery-grid">
+                        <div class="eda-gallery-item">
+                            <h4>Average Innings Score by Team</h4>
+                            <img src="/static/images/avg_score_by_team.png" alt="Average score by team plot" class="responsive-eda-img">
+                            <p class="eda-desc">Shows historic run aggregates by batting franchises across completed IPL datasets.</p>
+                        </div>
+                        <div class="eda-gallery-item">
+                            <h4>Correlation Heatmap of Features</h4>
+                            <img src="/static/images/correlation_heatmap.png" alt="Correlation heatmap plot" class="responsive-eda-img">
+                            <p class="eda-desc">Illustrates correlation strengths between runs, wickets, run rates, overs, and targets.</p>
+                        </div>
+                        <div class="eda-gallery-item">
+                            <h4>Distribution of Final Scores</h4>
+                            <img src="/static/images/score_distribution.png" alt="Score distribution histogram" class="responsive-eda-img">
+                            <p class="eda-desc">Displays density of innings scores showing standard bell shape centered around 160 runs.</p>
+                        </div>
+                    </div>
+                </section>
+            </div>
+        </div>
+
+        <!-- Tab 3: Credits and Contributions -->
+        <div id="tab-contributions" class="tab-panel hidden">
+            <section class="card info-card-full" aria-labelledby="credits-title">
+                <div class="card-header">
+                    <svg class="header-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                    <h2 id="credits-title">Project Contributors & Credits</h2>
+                </div>
+                
+                <div class="contributors-intro">
+                    <p class="paragraph-lead">
+                        This simulator is the product of collaborative efforts across data science, machine learning research, and full-stack system architecture.
+                    </p>
+                </div>
+
+                <div class="contributors-grid">
+                    <!-- Contributor 1: Pritiyax Shukla -->
+                    <div class="contributor-card animate-indigo">
+                        <div class="contributor-avatar-wrap">
+                            <div class="contributor-avatar accent-avatar">PS</div>
+                        </div>
+                        <div class="contributor-details">
+                            <h3>Pritiyax Shukla</h3>
+                            <span class="contributor-role text-indigo">Lead Developer</span>
+                            <hr class="contributor-divider">
+                            <ul class="contributor-tasks">
+                                <li>Developed the core Stacked LSTM model wrapper in `predict.py`.</li>
+                                <li>Created the matching progression projection logic for active innings.</li>
+                                <li>Integrated backend logic, dataset objects, and Flask API integrations.</li>
+                            </ul>
+                        </div>
+                    </div>
+
+                    <!-- Contributor 2: Aditya Verma -->
+                    <div class="contributor-card">
+                        <div class="contributor-avatar-wrap">
+                            <div class="contributor-avatar">AV</div>
+                        </div>
+                        <div class="contributor-details">
+                            <h3>Aditya Verma</h3>
+                            <span class="contributor-role">Frontend Developer (UI)</span>
+                            <hr class="contributor-divider">
+                            <ul class="contributor-tasks">
+                                <li>Designed and developed the minimalist dashboard layout.</li>
+                                <li>Created the Vercel-style slate-and-indigo theme styling.</li>
+                                <li>Implemented the frontend views using HTML template scripts and Flask endpoints.</li>
+                            </ul>
+                        </div>
+                    </div>
+
+                    <!-- Contributor 3: Akanksha -->
+                    <div class="contributor-card">
+                        <div class="contributor-avatar-wrap">
+                            <div class="contributor-avatar">AK</div>
+                        </div>
+                        <div class="contributor-details">
+                            <h3>Akanksha</h3>
+                            <span class="contributor-role">Research & Documentation</span>
+                            <hr class="contributor-divider">
+                            <ul class="contributor-tasks">
+                                <li>Conducted domain research on LSTM sequence modelling parameters in cricket.</li>
+                                <li>Collected training insights, early stopping variables, and metadata.</li>
+                                <li>Designed model specification documentation and technical instructions.</li>
+                            </ul>
+                        </div>
+                    </div>
+
+                    <!-- Contributor 4: Sanjana -->
+                    <div class="contributor-card">
+                        <div class="contributor-avatar-wrap">
+                            <div class="contributor-avatar">S</div>
+                        </div>
+                        <div class="contributor-details">
+                            <h3>Sanjana</h3>
+                            <span class="contributor-role">Development Support</span>
+                            <hr class="contributor-divider">
+                            <ul class="contributor-tasks">
+                                <li>Assisted in testing backend validation routines and debugging sequence inputs.</li>
+                                <li>Helped verify code builds and model loading across environments.</li>
+                                <li>Identified edge case progression bugs and supported testing checks.</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </div>
+    </div>
+
+    <!-- Main JavaScript Logic -->
+    <script src="/static/js/main.js"></script>
+</body>
+</html>

@@ -3,3 +3,6 @@ matches.csv
 dataset.zip
 IPL_Score_Prediction_G3.pptx
 build_ppt.js
+app.log
+__pycache__/
+*.pyc
